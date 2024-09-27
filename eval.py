@@ -3,7 +3,7 @@ import sacrebleu
 from translate import translate
 from tqdm import tqdm
 from dataloader import SequenceLoader
-import youtokentome
+# import youtokentome
 import codecs
 import os
 
@@ -16,7 +16,7 @@ sacrebleu_in_python = False
 # Make sure the right model checkpoint is selected in translate.py
 
 # Data loader
-test_loader = SequenceLoader(data_folder="/media/ssd/transformer data",
+test_loader = SequenceLoader(data_folder="./data",
                              source_suffix="en",
                              target_suffix="de",
                              split="test",
@@ -32,7 +32,7 @@ with torch.no_grad():
         hypotheses.append(translate(source_sequence=source_sequence,
                                     beam_size=4,
                                     length_norm_coefficient=0.6)[0])
-        references.extend(test_loader.bpe_model.decode(target_sequence.tolist(), ignore_ids=[0, 2, 3]))
+        references.extend(test_loader.bpe_model.decode_batch(target_sequence.tolist())) # , ignore_ids=[0, 2, 3]
     if sacrebleu_in_python:
         print("\n13a tokenization, cased:\n")
         print(sacrebleu.corpus_bleu(hypotheses, [references]))

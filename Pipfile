@@ -1,0 +1,27 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[[source]]
+url = "https://download.pytorch.org/whl/cu124"
+verify_ssl = true
+name = "cuda"
+
+[packages]
+pandas = "*"
+numpy = "*"
+torch = {index = "cuda", version = "*"}
+python-dotenv = "*"
+wget = "*"
+tqdm = "*"
+tokenizers = "*"
+sacrebleu = "*"
+transformers = "*"
+
+[dev-packages]
+jupyter = "*"
+ruff = "*"
+
+[requires]
+python_version = "3.11"

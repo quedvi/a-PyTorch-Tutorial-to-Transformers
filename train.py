@@ -5,9 +5,10 @@ import time
 from model import Transformer, LabelSmoothedCE
 from dataloader import SequenceLoader
 from utils import *
+from tqdm import tqdm
 
 # Data parameters
-data_folder = '/media/ssd/transformer data'  # folder with data files
+data_folder = './data'  # folder with data files
 
 # Model parameters
 d_model = 512  # size of vectors throughout the transformer model
@@ -45,12 +46,12 @@ def main():
     global checkpoint, step, start_epoch, epoch, epochs
 
     # Initialize data-loaders
-    train_loader = SequenceLoader(data_folder="/media/ssd/transformer data",
+    train_loader = SequenceLoader(data_folder="./data",
                                   source_suffix="en",
                                   target_suffix="de",
                                   split="train",
                                   tokens_in_batch=tokens_in_batch)
-    val_loader = SequenceLoader(data_folder="/media/ssd/transformer data",
+    val_loader = SequenceLoader(data_folder="./data",
                                 source_suffix="en",
                                 target_suffix="de",
                                 split="val",
@@ -58,7 +59,7 @@ def main():
 
     # Initialize model or load checkpoint
     if checkpoint is None:
-        model = Transformer(vocab_size=train_loader.bpe_model.vocab_size(),
+        model = Transformer(vocab_size=train_loader.bpe_model.get_vocab_size(), # .vocab_size(),
                             positional_encoding=positional_encoding,
                             d_model=d_model,
                             n_heads=n_heads,
@@ -233,10 +234,10 @@ def validate(val_loader, model, criterion):
             # Therefore, pads start after (length - 1) positions
             loss = criterion(inputs=predicted_sequence,
                              targets=target_sequence[:, 1:],
-                             lengths=target_sequence_length - 1)  # scalar
+                             lengths=target_sequence_length - 1)  # - 1 scalar
 
             # Keep track of losses
-            losses.update(loss.item(), (target_sequence_length - 1).sum().item())
+            losses.update(loss.item(), (target_sequence_length - 1).sum().item()) # -1
 
         print("\nValidation loss: %.3f\n\n" % losses.avg)
 

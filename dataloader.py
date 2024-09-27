@@ -1,11 +1,11 @@
-import youtokentome
+# import youtokentome
+from tokenizers import Tokenizer
 import codecs
 import os
 import torch
 from random import shuffle
 from itertools import groupby
 from torch.nn.utils.rnn import pad_sequence
-
 
 class SequenceLoader(object):
     """
@@ -42,7 +42,8 @@ class SequenceLoader(object):
         self.for_training = self.split == "train"
 
         # Load BPE model
-        self.bpe_model = youtokentome.BPE(model=os.path.join(data_folder, "bpe.model"))
+        self.bpe_model = Tokenizer.from_file(os.path.join(data_folder, "bpe.tokenizer.json"))
+        # self.bpe_model = youtokentome.BPE(model=os.path.join(data_folder, "bpe.model"))
 
         # Load data
         with codecs.open(os.path.join(data_folder, ".".join([split, source_suffix])), "r", encoding="utf-8") as f:
@@ -50,9 +51,15 @@ class SequenceLoader(object):
         with codecs.open(os.path.join(data_folder, ".".join([split, target_suffix])), "r", encoding="utf-8") as f:
             target_data = f.read().split("\n")[:-1]
         assert len(source_data) == len(target_data), "There are a different number of source or target sequences!"
-        source_lengths = [len(s) for s in self.bpe_model.encode(source_data, bos=False, eos=False)]
-        target_lengths = [len(t) for t in self.bpe_model.encode(target_data, bos=True,
-                                                                eos=True)]  # target language sequences have <BOS> and <EOS> tokens
+        
+        print('create source_lengths...')
+        # source_lengths = [len(s) for s in self.bpe_model.encode(source_data)] # , bos=False, eos=False
+        source_lengths = [len(self.bpe_model.encode(s, add_special_tokens=False).ids) for s in source_data] # , bos=False, eos=False
+        
+        print('create target_lengths...')
+        # target_lengths = [len(t) for t in self.bpe_model.encode(target_data)] # , bos=True,eos=True # target language sequences have <BOS> and <EOS> tokens
+        target_lengths = [len(self.bpe_model.encode(t).ids) for t in target_data] # , bos=True,eos=True # target language sequences have <BOS> and <EOS> tokens
+        
         self.data = list(zip(source_data, target_data, source_lengths, target_lengths))
 
         # If for training, pre-sort by target lengths - required for itertools.groupby() later
@@ -87,7 +94,7 @@ class SequenceLoader(object):
             self.n_batches = len(self.all_batches)
             self.current_batch = -1
         else:
-            # Simply return once pair at a time
+            # Simply return one pair at a time
             self.all_batches = [[d] for d in self.data]
             self.n_batches = len(self.all_batches)
             self.current_batch = -1
@@ -117,18 +124,18 @@ class SequenceLoader(object):
             raise StopIteration
 
         # Tokenize using BPE model to word IDs
-        source_data = self.bpe_model.encode(source_data, output_type=youtokentome.OutputType.ID, bos=False,
-                                            eos=False)
-        target_data = self.bpe_model.encode(target_data, output_type=youtokentome.OutputType.ID, bos=True,
-                                            eos=True)
-
+        # source_data = self.bpe_model.encode(source_data, bos=False, output_type=youtokentome.OutputType.ID, eos=False)
+        source_data = [self.bpe_model.encode(s, add_special_tokens=False).ids for s in source_data]
+        # target_data = self.bpe_model.encode(target_data, bos=True, output_type=youtokentome.OutputType.ID, eos=True)
+        target_data = [self.bpe_model.encode(t).ids for t in target_data]
+        
         # Convert source and target sequences as padded tensors
         source_data = pad_sequence(sequences=[torch.LongTensor(s) for s in source_data],
                                    batch_first=True,
-                                   padding_value=self.bpe_model.subword_to_id('<PAD>'))
+                                   padding_value=self.bpe_model.token_to_id('[PAD]'))
         target_data = pad_sequence(sequences=[torch.LongTensor(t) for t in target_data],
                                    batch_first=True,
-                                   padding_value=self.bpe_model.subword_to_id('<PAD>'))
+                                   padding_value=self.bpe_model.token_to_id('[PAD]'))
 
         # Convert lengths to tensors
         source_lengths = torch.LongTensor(source_lengths)

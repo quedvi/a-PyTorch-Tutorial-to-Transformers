@@ -1,3 +1,9 @@
+This is a fork of this tutorial: [issues](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Transformers)
+The main change is that the tokenizer **youtokentome** is replaced by a custom **BPE Tokenizer from Huggingface**.
+
+I personally use [mise](https://github.com/jdx/mise)/[pipenv](https://pipenv.pypa.io) to handle python version and dependencies.
+
+
 This is a **[PyTorch](https://pytorch.org) Tutorial to Transformers**. 
 
 While we will apply the transformer to a specific task – machine translation – in this tutorial, this is still a tutorial on **transformers** and how they work. You've come to the right place, regardless of your intended task, application, or domain – natural language processing (NLP) or computer vision (CV). 

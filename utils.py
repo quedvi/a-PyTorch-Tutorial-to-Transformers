@@ -4,7 +4,16 @@ import wget
 import tarfile
 import shutil
 import codecs
-import youtokentome
+
+# import youtokentome
+from tokenizers import Tokenizer # CharBPETokenizer, 
+from tokenizers.models import BPE
+from tokenizers.processors import TemplateProcessing
+from tokenizers.pre_tokenizers import BertPreTokenizer
+from tokenizers.trainers import BpeTrainer
+from tokenizers.decoders import BPEDecoder
+from tokenizers.normalizers import BertNormalizer
+
 import math
 from tqdm import tqdm
 
@@ -52,11 +61,11 @@ def download_data(data_folder):
 
     # Download validation and testing data using sacreBLEU since we will be using this library to calculate BLEU scores
     print("\n")
-    os.system("sacrebleu -t wmt13 -l en-de --echo src > '" + os.path.join(data_folder, "val.en") + "'")
-    os.system("sacrebleu -t wmt13 -l en-de --echo ref > '" + os.path.join(data_folder, "val.de") + "'")
+    os.system("sacrebleu -t wmt13 -l en-de -f text --echo src > '" + os.path.join(data_folder, "val.en") + "'")
+    os.system("sacrebleu -t wmt13 -l en-de -f text --echo ref > '" + os.path.join(data_folder, "val.de") + "'")
     print("\n")
-    os.system("sacrebleu -t wmt14/full -l en-de --echo src > '" + os.path.join(data_folder, "test.en") + "'")
-    os.system("sacrebleu -t wmt14/full -l en-de --echo ref > '" + os.path.join(data_folder, "test.de") + "'")
+    os.system("sacrebleu -t wmt14/full -l en-de -f text --echo src > '" + os.path.join(data_folder, "test.en") + "'")
+    os.system("sacrebleu -t wmt14/full -l en-de -f text --echo ref > '" + os.path.join(data_folder, "test.de") + "'")
 
     # Move files if they were extracted into a subdirectory
     for dir in [d for d in os.listdir(os.path.join(data_folder, "extracted files")) if
@@ -118,12 +127,31 @@ def prepare_data(data_folder, euro_parl=True, common_crawl=True, news_commentary
 
     # Perform BPE
     print("\nLearning BPE...")
-    youtokentome.BPE.train(data=os.path.join(data_folder, "train.ende"), vocab_size=37000,
-                           model=os.path.join(data_folder, "bpe.model"))
+    # load BPE model template
+    # tokenizer = Tokenizer.from_file(os.path.join(data_folder, "bpe.tokenizer_template.json"))
+    tokenizer = Tokenizer(BPE(unk_token="<unk>"))
+    tokenizer.post_processor = TemplateProcessing(
+        single="<bos> $A <eos>",
+        pair="<bos> $A <eos> $B:1 <eos>:1",
+        special_tokens=[("<bos>", 1), ("<eos>", 2)],
+    )
+    
+    tokenizer.enable_padding()
+    tokenizer.pre_tokenizer = BertPreTokenizer()
+    tokenizer.decoder = BPEDecoder(suffix="</w>")
+    tokenizer.normalizer = BertNormalizer(lowercase=False)
+    trainer = BpeTrainer(special_tokens=["<unk>", "<bos>", "<eos>", "[PAD]", "[MASK]"], end_of_word_suffix="</w>")
+    
+    tokenizer.train([os.path.join(data_folder, "train.ende")], trainer)
+    # youtokentome.BPE.train(data=os.path.join(data_folder, "train.ende"), vocab_size=37000,
+    #                        model=os.path.join(data_folder, "bpe.model"))
+  
+    tokenizer.save(os.path.join(data_folder, "bpe.tokenizer.json"), pretty=True)
 
     # Load BPE model
     print("\nLoading BPE model...")
-    bpe_model = youtokentome.BPE(model=os.path.join(data_folder, "bpe.model"))
+    bpe_model = Tokenizer.from_file(os.path.join(data_folder, "bpe.tokenizer.json"))
+    # bpe_model = youtokentome.BPE(model=os.path.join(data_folder, "bpe.model"))
 
     # Re-read English, German
     print("\nRe-reading single files...")
@@ -136,8 +164,8 @@ def prepare_data(data_folder, euro_parl=True, common_crawl=True, news_commentary
     print("\nFiltering...")
     pairs = list()
     for en, de in tqdm(zip(english, german), total=len(english)):
-        en_tok = bpe_model.encode(en, output_type=youtokentome.OutputType.ID)
-        de_tok = bpe_model.encode(de, output_type=youtokentome.OutputType.ID)
+        en_tok = bpe_model.encode(en).ids # , output_type=youtokentome.OutputType.ID
+        de_tok = bpe_model.encode(de).ids # , output_type=youtokentome.OutputType.ID
         len_en_tok = len(en_tok)
         len_de_tok = len(de_tok)
         if min_length < len_en_tok < max_length and \
